@@ -1,0 +1,25 @@
+{
+    "ingredientPattern": "PGP,NS_",
+    "width": 3,
+    "height": 2,
+    "name": "Sextant",
+  "ingredients": {
+    "S": {
+      "type": "item",
+      "code": "game:metalbit-silver"
+    },
+    "G": {
+      "type": "block",
+      "code": "game:glass-plain"
+    },
+    "N": {
+      "type": "item",
+      "code": "game:metalnailsandstrips-{metal}"
+    },
+    "P": {
+      "type": "item",
+      "code": "game:metalplate-brass"
+    }
+  },
+    "output": { "type": "item", "code": "realisticsurveying:sextant", "quantity": 1 }
+}

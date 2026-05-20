@@ -1,0 +1,10 @@
+{
+    "ingredientPattern": "R,R,R",
+    "width": 1,
+    "height": 3,
+    "name": "Surveyor's rope",
+    "ingredients": {
+        "R": { "type": "item", "code": "game:rope" }
+    },
+    "output": { "type": "item", "code": "realisticsurveying:surveyrope", "quantity": 1 }
+}

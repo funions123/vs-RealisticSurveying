@@ -1,0 +1,10 @@
+{
+    "ingredientPattern": "S,S,S",
+    "width": 1,
+    "height": 3,
+    "name": "Survey marker",
+    "ingredients": {
+        "S": { "type": "item", "code": "game:plank-{wood}" }
+    },
+    "output": { "type": "block", "code": "realisticsurveying:surveymarker", "quantity": 4 }
+}

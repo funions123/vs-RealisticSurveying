@@ -1,0 +1,33 @@
+{
+  "ingredientPattern": "PGP,NSN,BBB",
+  "width": 3,
+  "height": 3,
+  "name": "Theodolite",
+  "ingredients": {
+    "S": {
+      "type": "item",
+      "code": "game:metalbit-silver"
+    },
+    "G": {
+      "type": "block",
+      "code": "game:glass-plain"
+    },
+    "N": {
+      "type": "item",
+      "code": "game:metalnailsandstrips-{metal}"
+    },
+    "P": {
+      "type": "item",
+      "code": "game:metalplate-brass"
+    },
+    "B": {
+      "type": "item",
+      "code": "game:plank-{wood}"
+    }
+  },
+  "output": {
+    "type": "item",
+    "code": "realisticsurveying:theodolite",
+    "quantity": 1
+  }
+}

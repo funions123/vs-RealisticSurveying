@@ -1,0 +1,13 @@
+{
+    "ingredientPattern": "M,B",
+    "width": 1,
+    "height": 2,
+    "shapeless": true,
+    "copyAttributesFrom": "M",
+    "name": "Copy topographic map",
+    "ingredients": {
+        "M": { "type": "item", "code": "realisticsurveying:topographicmap", "isTool": true, "toolDurabilityCost": 0 },
+        "B": { "type": "item", "code": "realisticsurveying:blankmap" }
+    },
+    "output": { "type": "item", "code": "realisticsurveying:topographicmap", "quantity": 1 }
+}

@@ -1,0 +1,35 @@
+{
+  "code": "realisticsurveying:surveyrope",
+  "class": "ItemSurveyRope",
+  "textures": {
+    "rope": { "base": "game:item/resource/rope" }
+  },
+  "shape": { "base": "game:item/resource/rope" },
+  "maxstacksize": 1,
+  "creativeinventory": { "general": ["*"], "items": ["*"] },
+  "materialDensity": 510,
+  "guiTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": -32, "y": 36, "z": -180 },
+    "origin": { "x": 0.53, "y": 0.125, "z": 0.5 },
+    "scale": 2.1
+  },
+  "fpHandTransform": {
+    "translation": { "x": 0, "y": 0.1, "z": 0 },
+    "rotation": { "x": 19, "y": 180, "z": -30 },
+    "origin": { "x": 0.5, "y": 0.125, "z": 0.5 },
+    "scale": 2.11
+  },
+  "tpHandTransform": {
+    "translation": { "x": -0.7, "y": -0.28, "z": -0.8 },
+    "rotation": { "x": -78, "y": 7, "z": 8 },
+    "origin": { "x": 0.5, "y": 0.125, "z": 0.5 },
+    "scale": 0.7
+  },
+  "groundTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "origin": { "x": 0.5, "y": 0, "z": 0.5 },
+    "scale": 2.8
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "block-surveymarker": "Survey Marker",
+  "blockdesc-surveymarker": "Used to place points on maps.",
+
+  "item-blankmap": "Blank Survey Map",
+  "itemdesc-blankmap": "Blank survey map",
+
+  "item-topographicmap": "Filled Survey Map",
+  "itemdesc-topographicmap": "Survey map with markings",
+
+  "item-surveyrope": "Surveyor's Rope",
+  "itemdesc-surveyrope": "Used for physically measuring distance between two markers",
+
+  "item-theodolite": "Theodolite",
+  "itemdesc-theodolite": "Used for determining the location of a third point using two established markers",
+
+  "item-sextant": "Sextant",
+  "itemdesc-sextant": "Can provide a rough estimation of your coordinates using the sun and stars"
+}

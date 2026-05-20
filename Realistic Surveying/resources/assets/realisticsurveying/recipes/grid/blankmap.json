@@ -1,0 +1,10 @@
+{
+    "ingredientPattern": "FF,FF",
+    "width": 2,
+    "height": 2,
+    "name": "Blank survey map",
+    "ingredients": {
+        "F": { "type": "item", "code": "game:paper-parchment" }
+    },
+    "output": { "type": "item", "code": "realisticsurveying:blankmap", "quantity": 1 }
+}
