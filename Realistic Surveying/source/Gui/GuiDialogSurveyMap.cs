@@ -25,6 +25,15 @@ public class GuiDialogSurveyMap : GuiDialog
     private bool _showCoords = false;
 
     /// <summary>
+    /// Current zoom multiplier (1 = full 1024-block view).
+    /// </summary>
+    private double _zoom = 1.0;
+
+    // Canvas centre position in world-block coordinates.
+    private double _panX = 0.0;
+    private double _panZ = 0.0;
+
+    /// <summary>
     /// World blocks spanned by the canvas at zoom = 1.
     /// </summary>
     private const double BlocksPerMap    = 1024.0;
@@ -46,15 +55,6 @@ public class GuiDialogSurveyMap : GuiDialog
     /// Canvas-pixel radius within which a click is attributed to a node.
     /// </summary>
     private const double NodeClickRadius = 8.0;
-
-    /// <summary>
-    /// Current zoom multiplier (1 = full 1024-block view).
-    /// </summary>
-    private double _zoom = 1.0;
-
-    // Canvas centre position in world-block coordinates.
-    private double _panX = 0.0;
-    private double _panZ = 0.0;
 
     // Drag/pan input state
     private bool   _isDragging;
@@ -99,6 +99,16 @@ public class GuiDialogSurveyMap : GuiDialog
         _mapItem      = (ItemTopographicMap)mapStack.Item;
         _labelChannel = capi.ModLoader
             .GetModSystem<RealisticSurveyingModSystem>()?.ClientLabelChannel;
+
+        // Restore per-stack view state so zoom/pan/toggles survive closing and reopening.
+        _showFaces  = _mapStack.Attributes.GetBool("rsShowFaces",  true);
+        _showEdges  = _mapStack.Attributes.GetBool("rsShowEdges",  true);
+        _showNodes  = _mapStack.Attributes.GetBool("rsShowNodes",  true);
+        _showLabels = _mapStack.Attributes.GetBool("rsShowLabels", false);
+        _showCoords = _mapStack.Attributes.GetBool("rsShowCoords", false);
+        _zoom       = _mapStack.Attributes.GetDouble("rsViewZoom", 1.0);
+        _panX       = _mapStack.Attributes.GetDouble("rsViewPanX", 0.0);
+        _panZ       = _mapStack.Attributes.GetDouble("rsViewPanZ", 0.0);
 
         int sc = _mapItem.StrokeCount(_mapStack);
         for (int i = 0; i < sc; i++)
@@ -168,11 +178,11 @@ public class GuiDialogSurveyMap : GuiDialog
             .AddDialogTitleBar(title, () => TryClose())
             .BeginChildElements(bgBounds)
                 .AddDynamicCustomDraw(_canvasBounds, DrawMap, "mapCanvas")
-                .AddSwitch(v => { _showFaces  = v; RedrawMap(); }, swFaces,  "swFaces",  swSize)
-                .AddSwitch(v => { _showEdges  = v; RedrawMap(); }, swEdges,  "swEdges",  swSize)
-                .AddSwitch(v => { _showNodes  = v; RedrawMap(); }, swNodes,  "swNodes",  swSize)
-                .AddSwitch(v => { _showLabels = v; RedrawMap(); }, swLabels, "swLabels", swSize)
-                .AddSwitch(v => { _showCoords = v; RedrawMap(); }, swCoords, "swCoords", swSize)
+                .AddSwitch(v => { _showFaces  = v; SaveViewState(); RedrawMap(); }, swFaces,  "swFaces",  swSize)
+                .AddSwitch(v => { _showEdges  = v; SaveViewState(); RedrawMap(); }, swEdges,  "swEdges",  swSize)
+                .AddSwitch(v => { _showNodes  = v; SaveViewState(); RedrawMap(); }, swNodes,  "swNodes",  swSize)
+                .AddSwitch(v => { _showLabels = v; SaveViewState(); RedrawMap(); }, swLabels, "swLabels", swSize)
+                .AddSwitch(v => { _showCoords = v; SaveViewState(); RedrawMap(); }, swCoords, "swCoords", swSize)
                 .AddStaticText("Show Faces",  CairoFont.WhiteSmallText(), lbFaces)
                 .AddStaticText("Show Edges",  CairoFont.WhiteSmallText(), lbEdges)
                 .AddStaticText("Show Nodes",  CairoFont.WhiteSmallText(), lbNodes)
@@ -217,6 +227,23 @@ public class GuiDialogSurveyMap : GuiDialog
     private void RedrawMap() =>
         SingleComposer?.GetCustomDraw("mapCanvas")?.Redraw();
 
+    /// <summary>
+    /// Persists zoom, pan, and toggle state into the item stack's attributes so the
+    /// view survives closing and reopening the map. Stored per-stack, so two different
+    /// map items can have independent zoom/pan/settings.
+    /// </summary>
+    private void SaveViewState()
+    {
+        _mapStack.Attributes.SetBool("rsShowFaces",  _showFaces);
+        _mapStack.Attributes.SetBool("rsShowEdges",  _showEdges);
+        _mapStack.Attributes.SetBool("rsShowNodes",  _showNodes);
+        _mapStack.Attributes.SetBool("rsShowLabels", _showLabels);
+        _mapStack.Attributes.SetBool("rsShowCoords", _showCoords);
+        _mapStack.Attributes.SetDouble("rsViewZoom", _zoom);
+        _mapStack.Attributes.SetDouble("rsViewPanX", _panX);
+        _mapStack.Attributes.SetDouble("rsViewPanZ", _panZ);
+    }
+
     // Mouse: zoom (scroll wheel)
     public override void OnMouseWheel(MouseWheelEventArgs args)
     {
@@ -244,6 +271,7 @@ public class GuiDialogSurveyMap : GuiDialog
         _panX += (mx - w / 2.0) * (1.0 / oldScale - 1.0 / newScale);
         _panZ += (mz - h / 2.0) * (1.0 / oldScale - 1.0 / newScale);
 
+        SaveViewState();
         RedrawMap();
         args.SetHandled(true);
     }
@@ -341,6 +369,9 @@ public class GuiDialogSurveyMap : GuiDialog
 
         if (_isDragging && !_dragThresholdExceeded && args.Button == EnumMouseButton.Left)
             TrySelectNode(args.X, args.Y);
+
+        if (_isDragging && _dragThresholdExceeded)
+            SaveViewState();
 
         _isDragging = false;
         base.OnMouseUp(args);
