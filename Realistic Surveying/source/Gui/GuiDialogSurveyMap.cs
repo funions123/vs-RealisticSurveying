@@ -48,6 +48,11 @@ public class GuiDialogSurveyMap : GuiDialog
     private const double NodeClickRadius = 8.0;
 
     /// <summary>
+    /// Canvas-pixel radius within which a click is attributed to an edge.
+    /// </summary>
+    private const double EdgeClickRadius = 8.0;
+
+    /// <summary>
     /// Current zoom multiplier (1 = full 1024-block view).
     /// </summary>
     private double _zoom = 1.0;
@@ -372,6 +377,43 @@ public class GuiDialogSurveyMap : GuiDialog
             if (dx * dx + dz * dz <= NodeClickRadius * NodeClickRadius)
             {
                 OpenLabelEditor(i);
+                return;
+            }
+        }
+
+        var edges = _mapItem.GetEdges(_mapStack);
+        for (int i = 0; i < edges.Length; i += 2)
+        {
+            Vec3f a3 = _mapItem.GetNode(_mapStack, edges[i]);
+            Vec3f b3 = _mapItem.GetNode(_mapStack, edges[i + 1]);
+            (double ax, double az) = NodeToCanvas(a3, originX, originZ, scale);
+            (double bx, double bz) = NodeToCanvas(b3, originX, originZ, scale);
+
+            Vec2d a = new Vec2d(ax, az);
+            Vec2d ab = new Vec2d(bx, bz) - a;
+            Vec2d ac = new Vec2d(cx, cz) - a;
+
+            double dot_ab = ab.Dot(ab);
+
+            // A and B are the same points, this avoids division by zero
+            if(dot_ab == 0.0) {
+                continue;
+            }
+
+            // length of C projected onto the edge
+            double t = ac.Dot(ab) / dot_ab;
+            t = GameMath.Clamp(t, 0.0, 1.0);
+
+            Vec2d closest = t * ab - ac;
+            if (closest.LengthSq() <= EdgeClickRadius * EdgeClickRadius)
+            {
+                new GuiDialogConfirm(capi, "Delete edge?",
+                    () => {
+                        _mapItem.DeleteEdge(_mapStack, i / 2);
+                        _labelChannel?.SendPacket(new DeleteEdgePacket { EdgeIndex = i / 2 });
+                        RedrawMap();
+                    }
+                ).TryOpen();
                 return;
             }
         }
