@@ -156,6 +156,14 @@ public class ItemTopographicMap : Item
     }
 
     /// <summary>
+    /// Returns the raw packed node array [dX,dY,dZ, …]. Intended for hot render loops
+    /// that would otherwise call <see cref="GetNode"/> (and re-do the attribute lookup
+    /// plus allocate a Vec3f) thousands of times per frame. Do not mutate.
+    /// </summary>
+    public float[] GetNodesRaw(ItemStack stack) =>
+        (stack.Attributes["Nodes"] as FloatArrayAttribute)?.value ?? Array.Empty<float>();
+
+    /// <summary>
     /// Returns true if a node within <paramref name="epsilon"/> of <paramref name="offset"/>
     /// already exists in the map. Use this to enforce connectivity before adding new nodes.
     /// </summary>

@@ -64,6 +64,9 @@ public class GuiDialogSurveyMap : GuiDialog
     private double _dragStartPanX;
     private double _dragStartPanZ;
 
+    // Flag when the frame needs to be redrawn
+    private bool _redrawDirty;
+
     // Retained so mouse handlers can compute canvas-local coordinates.
     private ElementBounds _canvasBounds = null!;
 
@@ -224,8 +227,22 @@ public class GuiDialogSurveyMap : GuiDialog
         return true;
     }
 
-    private void RedrawMap() =>
-        SingleComposer?.GetCustomDraw("mapCanvas")?.Redraw();
+    /// <summary>
+    /// Requests a canvas redraw. The real redraw (full Cairo re-render + GPU texture
+    /// upload) is expensive, so we only set a flag here and perform it at most once
+    /// per frame in <see cref="OnRenderGUI"/>.
+    /// </summary>
+    private void RedrawMap() => _redrawDirty = true;
+
+    public override void OnRenderGUI(float deltaTime)
+    {
+        if (_redrawDirty)
+        {
+            _redrawDirty = false;
+            SingleComposer?.GetCustomDraw("mapCanvas")?.Redraw();
+        }
+        base.OnRenderGUI(deltaTime);
+    }
 
     /// <summary>
     /// Sends view state to the server to be written into the ItemStack attributes.
@@ -463,21 +480,38 @@ public class GuiDialogSurveyMap : GuiDialog
             return;
         }
 
+        // Pull the packed node array once and reference a cached version of it.
+        float[] nodes = _mapItem.GetNodesRaw(_mapStack);
+
+        // Node index -> canvas pixel coords (top-down X/Z plane).
+        (double px, double pz) Canvas(int idx) =>
+            (originX + nodes[idx * 3] * scale, originZ + nodes[idx * 3 + 2] * scale);
+
+        // Off-canvas culling to not track invisible elements.
+        bool PointOff(double x, double z, double m) =>
+            x < -m || x > w + m || z < -m || z > h + m;
+        bool SegOff(double x0, double z0, double x1, double z1) =>
+            (x0 < 0 && x1 < 0) || (x0 > w && x1 > w) ||
+            (z0 < 0 && z1 < 0) || (z0 > h && z1 > h);
+        bool TriOff(double x0, double z0, double x1, double z1, double x2, double z2) =>
+            (x0 < 0 && x1 < 0 && x2 < 0) || (x0 > w && x1 > w && x2 > w) ||
+            (z0 < 0 && z1 < 0 && z2 < 0) || (z0 > h && z1 > h && z2 > h);
+
         // Faces
         if (_showFaces)
         {
             int[] faces = _mapItem.GetFaces(_mapStack);
             for (int i = 0; i < faces.Length; i += 3)
             {
-                Vec3f a = _mapItem.GetNode(_mapStack, faces[i]);
-                Vec3f b = _mapItem.GetNode(_mapStack, faces[i + 1]);
-                Vec3f c = _mapItem.GetNode(_mapStack, faces[i + 2]);
+                int ia = faces[i], ib = faces[i + 1], ic = faces[i + 2];
+                (double ax, double az)   = Canvas(ia);
+                (double bx, double bz)   = Canvas(ib);
+                (double ccx, double ccz) = Canvas(ic);
 
-                (double ax, double az)   = NodeToCanvas(a, originX, originZ, scale);
-                (double bx, double bz)   = NodeToCanvas(b, originX, originZ, scale);
-                (double ccx, double ccz) = NodeToCanvas(c, originX, originZ, scale);
+                if (TriOff(ax, az, bx, bz, ccx, ccz)) continue;
 
-                Color col = ElevationColor((a.Y + b.Y + c.Y) / 3f);
+                float meanY = (nodes[ia * 3 + 1] + nodes[ib * 3 + 1] + nodes[ic * 3 + 1]) / 3f;
+                Color col = ElevationColor(meanY);
 
                 ctx.NewPath();
                 ctx.MoveTo(ax, az);
@@ -498,11 +532,10 @@ public class GuiDialogSurveyMap : GuiDialog
             int[] edges = _mapItem.GetEdges(_mapStack);
             for (int i = 0; i < edges.Length; i += 2)
             {
-                Vec3f a = _mapItem.GetNode(_mapStack, edges[i]);
-                Vec3f b = _mapItem.GetNode(_mapStack, edges[i + 1]);
+                (double ax, double az) = Canvas(edges[i]);
+                (double bx, double bz) = Canvas(edges[i + 1]);
 
-                (double ax, double az) = NodeToCanvas(a, originX, originZ, scale);
-                (double bx, double bz) = NodeToCanvas(b, originX, originZ, scale);
+                if (SegOff(ax, az, bx, bz)) continue;
 
                 ctx.NewPath();
                 ctx.MoveTo(ax, az);
@@ -516,8 +549,8 @@ public class GuiDialogSurveyMap : GuiDialog
         {
             for (int i = 0; i < nodeCount; i++)
             {
-                Vec3f node = _mapItem.GetNode(_mapStack, i);
-                (double px, double pz) = NodeToCanvas(node, originX, originZ, scale);
+                (double px, double pz) = Canvas(i);
+                if (PointOff(px, pz, 4.0)) continue;
 
                 ctx.NewPath();
                 ctx.Arc(px, pz, 3.5, 0, Math.PI * 2);
@@ -532,42 +565,52 @@ public class GuiDialogSurveyMap : GuiDialog
             }
         }
 
-        // Labels (names and/or coordinates)
+        // Labels (names and/or coordinates). Drawn in two passes so each font is selected
+        // once rather than once per node.
         if (_showLabels || _showCoords)
         {
             BlockPos origin = _mapItem.GetOrigin(_mapStack);
+            const double labelMargin = 160.0;   // labels extend right/up of the node anchor
 
-            for (int i = 0; i < nodeCount; i++)
+            // Pass 1: custom names
+            if (_showLabels)
             {
-                Vec3f node = _mapItem.GetNode(_mapStack, i);
-                (double px, double pz) = NodeToCanvas(node, originX, originZ, scale);
+                ctx.SelectFontFace("sans-serif", FontSlant.Normal, FontWeight.Bold);
+                ctx.SetFontSize(9.5);
+                ctx.SetSourceRGBA(0.10, 0.05, 0.00, 0.95);
 
-                double textX = px + 6;
-                double textY = pz - 3;
-
-                if (_showLabels)
+                for (int i = 0; i < nodeCount; i++)
                 {
+                    (double px, double pz) = Canvas(i);
+                    if (PointOff(px, pz, labelMargin)) continue;
+
                     string customLabel = _mapItem.GetNodeLabel(_mapStack, i);
-                    if (!string.IsNullOrEmpty(customLabel))
-                    {
-                        ctx.SelectFontFace("sans-serif", FontSlant.Normal, FontWeight.Bold);
-                        ctx.SetFontSize(9.5);
-                        ctx.SetSourceRGBA(0.10, 0.05, 0.00, 0.95);
-                        ctx.MoveTo(textX, textY);
-                        ctx.ShowText(customLabel);
-                        textY += 11.0;
-                    }
+                    if (string.IsNullOrEmpty(customLabel)) continue;
+
+                    ctx.MoveTo(px + 6, pz - 3);
+                    ctx.ShowText(customLabel);
                 }
+            }
 
-                if (_showCoords)
+            // Pass 2: coordinates
+            if (_showCoords)
+            {
+                ctx.SelectFontFace("monospace", FontSlant.Normal, FontWeight.Normal);
+                ctx.SetFontSize(8.5);
+                ctx.SetSourceRGBA(0.30, 0.20, 0.10, 0.80);
+
+                for (int i = 0; i < nodeCount; i++)
                 {
-                    int    absY      = origin.Y + (int)Math.Round(node.Y);
-                    string coordLine = FormatCoords(node, absY);
+                    (double px, double pz) = Canvas(i);
+                    if (PointOff(px, pz, labelMargin)) continue;
 
-                    ctx.SelectFontFace("monospace", FontSlant.Normal, FontWeight.Normal);
-                    ctx.SetFontSize(8.5);
-                    ctx.SetSourceRGBA(0.30, 0.20, 0.10, 0.80);
-                    ctx.MoveTo(textX, textY);
+                    bool hasName = _showLabels &&
+                        !string.IsNullOrEmpty(_mapItem.GetNodeLabel(_mapStack, i));
+
+                    int    absY      = origin.Y + (int)Math.Round(nodes[i * 3 + 1]);
+                    string coordLine = FormatCoords(nodes[i * 3], nodes[i * 3 + 2], absY);
+
+                    ctx.MoveTo(px + 6, (pz - 3) + (hasName ? 11.0 : 0.0));
                     ctx.ShowText(coordLine);
                 }
             }
@@ -784,10 +827,13 @@ public class GuiDialogSurveyMap : GuiDialog
     /// X and Z are relative to the map origin (signed integer block offsets).
     /// Y is the absolute world block height.
     /// </summary>
-    private static string FormatCoords(Vec3f node, int absY)
+    private static string FormatCoords(Vec3f node, int absY) =>
+        FormatCoords(node.X, node.Z, absY);
+
+    private static string FormatCoords(float nodeX, float nodeZ, int absY)
     {
-        int rx = (int)Math.Round(node.X);
-        int rz = (int)Math.Round(node.Z);
+        int rx = (int)Math.Round(nodeX);
+        int rz = (int)Math.Round(nodeZ);
         string xStr = rx >= 0 ? $"+{rx}" : $"{rx}";
         string zStr = rz >= 0 ? $"+{rz}" : $"{rz}";
         return $"X{xStr}  Y{absY}  Z{zStr}";
