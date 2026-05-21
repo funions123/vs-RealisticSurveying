@@ -20,21 +20,6 @@ namespace RealisticSurveying.GameContent;
 /// </summary>
 public class ItemTopographicMap : Item
 {
-    /// <summary>
-    /// Current zoom multiplier (1 = full 1024-block view).
-    /// </summary>
-    internal double _zoom = 1.0;
-
-    // Canvas centre position in world-block coordinates.
-    internal double _panX = 0.0;
-    internal double _panZ = 0.0;
-
-    internal bool _showFaces  = true;
-    internal bool _showEdges  = true;
-    internal bool _showNodes  = true;
-    internal bool _showLabels = false;
-    internal bool _showCoords = false;
-
     /// <summary>WatchedAttributes key storing the selected-map slot (-2 = none, -1 = offhand, 0-9 = hotbar).</summary>
     internal const string KeySelectedSlot = "rsSelectedMapSlot";
 
