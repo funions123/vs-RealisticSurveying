@@ -69,7 +69,7 @@ public class ItemTopographicMap : Item
             return;
         }
 
-        if (IsInitialized(slot.Itemstack))
+        if (byEntity.Controls.Sneak && IsInitialized(slot.Itemstack))
         {
             if (api.Side == EnumAppSide.Client)
             {
