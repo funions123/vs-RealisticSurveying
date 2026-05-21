@@ -44,9 +44,10 @@ public class ItemTheodolite : Item
         // Sneak+right-click in air = full reset
         if (byEntity.Controls.Sneak && blockSel == null)
         {
-            if (api.Side == EnumAppSide.Server)
+            if (state != 0 || slot.Itemstack.Attributes.GetInt(KeyPhase, 0) != 0)
             {
-                if (state != 0 || slot.Itemstack.Attributes.GetInt(KeyPhase, 0) != 0)
+                handling = EnumHandHandling.PreventDefault;
+                if (api.Side == EnumAppSide.Server)
                 {
                     ClearEntityState(byEntity);
                     ClearItemState(slot);
