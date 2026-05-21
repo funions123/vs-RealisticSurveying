@@ -174,7 +174,7 @@ public sealed class RealisticSurveyingModSystem : ModSystem
     {
         if (_rangeExtended) return;
         _origPickingRange = capi.World.Player.WorldData.PickingRange;
-        capi.World.Player.WorldData.PickingRange = 200f;
+        capi.World.Player.WorldData.PickingRange = 500f;
         _rangeExtended = true;
     }
 
