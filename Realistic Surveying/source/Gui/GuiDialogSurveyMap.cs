@@ -18,12 +18,6 @@ public class GuiDialogSurveyMap : GuiDialog
     private readonly ItemTopographicMap     _mapItem;
     private readonly IClientNetworkChannel? _labelChannel;
 
-    private bool _showFaces  = true;
-    private bool _showEdges  = true;
-    private bool _showNodes  = true;
-    private bool _showLabels = false;
-    private bool _showCoords = false;
-
     /// <summary>
     /// World blocks spanned by the canvas at zoom = 1.
     /// </summary>
@@ -46,15 +40,6 @@ public class GuiDialogSurveyMap : GuiDialog
     /// Canvas-pixel radius within which a click is attributed to a node.
     /// </summary>
     private const double NodeClickRadius = 8.0;
-
-    /// <summary>
-    /// Current zoom multiplier (1 = full 1024-block view).
-    /// </summary>
-    private double _zoom = 1.0;
-
-    // Canvas centre position in world-block coordinates.
-    private double _panX = 0.0;
-    private double _panZ = 0.0;
 
     // Drag/pan input state
     private bool   _isDragging;
@@ -168,11 +153,11 @@ public class GuiDialogSurveyMap : GuiDialog
             .AddDialogTitleBar(title, () => TryClose())
             .BeginChildElements(bgBounds)
                 .AddDynamicCustomDraw(_canvasBounds, DrawMap, "mapCanvas")
-                .AddSwitch(v => { _showFaces  = v; RedrawMap(); }, swFaces,  "swFaces",  swSize)
-                .AddSwitch(v => { _showEdges  = v; RedrawMap(); }, swEdges,  "swEdges",  swSize)
-                .AddSwitch(v => { _showNodes  = v; RedrawMap(); }, swNodes,  "swNodes",  swSize)
-                .AddSwitch(v => { _showLabels = v; RedrawMap(); }, swLabels, "swLabels", swSize)
-                .AddSwitch(v => { _showCoords = v; RedrawMap(); }, swCoords, "swCoords", swSize)
+                .AddSwitch(v => { _mapItem._showFaces  = v; RedrawMap(); }, swFaces,  "swFaces",  swSize)
+                .AddSwitch(v => { _mapItem._showEdges  = v; RedrawMap(); }, swEdges,  "swEdges",  swSize)
+                .AddSwitch(v => { _mapItem._showNodes  = v; RedrawMap(); }, swNodes,  "swNodes",  swSize)
+                .AddSwitch(v => { _mapItem._showLabels = v; RedrawMap(); }, swLabels, "swLabels", swSize)
+                .AddSwitch(v => { _mapItem._showCoords = v; RedrawMap(); }, swCoords, "swCoords", swSize)
                 .AddStaticText("Show Faces",  CairoFont.WhiteSmallText(), lbFaces)
                 .AddStaticText("Show Edges",  CairoFont.WhiteSmallText(), lbEdges)
                 .AddStaticText("Show Nodes",  CairoFont.WhiteSmallText(), lbNodes)
@@ -194,11 +179,11 @@ public class GuiDialogSurveyMap : GuiDialog
             .EndChildElements()
             .Compose();
 
-        SingleComposer.GetSwitch("swFaces").On  = _showFaces;
-        SingleComposer.GetSwitch("swEdges").On  = _showEdges;
-        SingleComposer.GetSwitch("swNodes").On  = _showNodes;
-        SingleComposer.GetSwitch("swLabels").On = _showLabels;
-        SingleComposer.GetSwitch("swCoords").On = _showCoords;
+        SingleComposer.GetSwitch("swFaces").On  = _mapItem._showFaces;
+        SingleComposer.GetSwitch("swEdges").On  = _mapItem._showEdges;
+        SingleComposer.GetSwitch("swNodes").On  = _mapItem._showNodes;
+        SingleComposer.GetSwitch("swLabels").On = _mapItem._showLabels;
+        SingleComposer.GetSwitch("swCoords").On = _mapItem._showCoords;
         SingleComposer.GetSwitch("swDraw").On   = _drawMode;
     }
 
@@ -232,17 +217,17 @@ public class GuiDialogSurveyMap : GuiDialog
 
         double w = _canvasBounds.InnerWidth;
         double h = _canvasBounds.InnerHeight;
-        double oldScale = w / BlocksPerMap * _zoom;
+        double oldScale = w / BlocksPerMap * _mapItem._zoom;
 
         double factor = args.deltaPrecise > 0 ? 1.25 : 1.0 / 1.25;
-        _zoom = Math.Clamp(_zoom * factor, MinZoom, MaxZoom);
-        double newScale = w / BlocksPerMap * _zoom;
+        _mapItem._zoom = Math.Clamp(_mapItem._zoom * factor, MinZoom, MaxZoom);
+        double newScale = w / BlocksPerMap * _mapItem._zoom;
 
         // Zoom centred on the cursor so the block under it stays fixed
         double mx = mouseX - _canvasBounds.absX;
         double mz = mouseY - _canvasBounds.absY;
-        _panX += (mx - w / 2.0) * (1.0 / oldScale - 1.0 / newScale);
-        _panZ += (mz - h / 2.0) * (1.0 / oldScale - 1.0 / newScale);
+        _mapItem._panX += (mx - w / 2.0) * (1.0 / oldScale - 1.0 / newScale);
+        _mapItem._panZ += (mz - h / 2.0) * (1.0 / oldScale - 1.0 / newScale);
 
         RedrawMap();
         args.SetHandled(true);
@@ -278,8 +263,8 @@ public class GuiDialogSurveyMap : GuiDialog
             _dragThresholdExceeded = false;
             _dragStartMouseX       = args.X;
             _dragStartMouseZ       = args.Y;
-            _dragStartPanX         = _panX;
-            _dragStartPanZ         = _panZ;
+            _dragStartPanX         = _mapItem._panX;
+            _dragStartPanZ         = _mapItem._panZ;
             args.Handled           = true;
             return;
         }
@@ -312,9 +297,9 @@ public class GuiDialogSurveyMap : GuiDialog
 
             if (_dragThresholdExceeded)
             {
-                double scale = _canvasBounds.InnerWidth / BlocksPerMap * _zoom;
-                _panX = _dragStartPanX - dx / scale;
-                _panZ = _dragStartPanZ - dz / scale;
+                double scale = _canvasBounds.InnerWidth / BlocksPerMap * _mapItem._zoom;
+                _mapItem._panX = _dragStartPanX - dx / scale;
+                _mapItem._panZ = _dragStartPanZ - dz / scale;
                 RedrawMap();
             }
             return;
@@ -358,9 +343,9 @@ public class GuiDialogSurveyMap : GuiDialog
 
         double w       = _canvasBounds.InnerWidth;
         double h       = _canvasBounds.InnerHeight;
-        double scale   = w / BlocksPerMap * _zoom;
-        double originX = w / 2.0 - _panX * scale;
-        double originZ = h / 2.0 - _panZ * scale;
+        double scale   = w / BlocksPerMap * _mapItem._zoom;
+        double originX = w / 2.0 - _mapItem._panX * scale;
+        double originZ = h / 2.0 - _mapItem._panZ * scale;
 
         int nodeCount = _mapItem.NodeCount(_mapStack);
         for (int i = 0; i < nodeCount; i++)
@@ -407,11 +392,11 @@ public class GuiDialogSurveyMap : GuiDialog
         double h = bounds.InnerHeight;
 
         // Pixels per block at the current zoom level
-        double scale = w / BlocksPerMap * _zoom;
+        double scale = w / BlocksPerMap * _mapItem._zoom;
 
         // Canvas coordinates of the world origin block (node offset = 0,0,0)
-        double originX = w / 2.0 - _panX * scale;
-        double originZ = h / 2.0 - _panZ * scale;
+        double originX = w / 2.0 - _mapItem._panX * scale;
+        double originZ = h / 2.0 - _mapItem._panZ * scale;
 
         // Parchment Background
         ctx.SetSourceRGBA(0.90, 0.85, 0.70, 1.0);
@@ -432,7 +417,7 @@ public class GuiDialogSurveyMap : GuiDialog
         }
 
         // Faces
-        if (_showFaces)
+        if (_mapItem._showFaces)
         {
             int[] faces = _mapItem.GetFaces(_mapStack);
             for (int i = 0; i < faces.Length; i += 3)
@@ -458,7 +443,7 @@ public class GuiDialogSurveyMap : GuiDialog
         }
 
         // Edges
-        if (_showEdges)
+        if (_mapItem._showEdges)
         {
             ctx.SetSourceRGBA(0.25, 0.15, 0.05, 0.9);
             ctx.LineWidth = 1.5;
@@ -480,7 +465,7 @@ public class GuiDialogSurveyMap : GuiDialog
         }
 
         // Nodes
-        if (_showNodes)
+        if (_mapItem._showNodes)
         {
             for (int i = 0; i < nodeCount; i++)
             {
@@ -501,7 +486,7 @@ public class GuiDialogSurveyMap : GuiDialog
         }
 
         // Labels (names and/or coordinates)
-        if (_showLabels || _showCoords)
+        if (_mapItem._showLabels || _mapItem._showCoords)
         {
             BlockPos origin = _mapItem.GetOrigin(_mapStack);
 
@@ -513,7 +498,7 @@ public class GuiDialogSurveyMap : GuiDialog
                 double textX = px + 6;
                 double textY = pz - 3;
 
-                if (_showLabels)
+                if (_mapItem._showLabels)
                 {
                     string customLabel = _mapItem.GetNodeLabel(_mapStack, i);
                     if (!string.IsNullOrEmpty(customLabel))
@@ -527,7 +512,7 @@ public class GuiDialogSurveyMap : GuiDialog
                     }
                 }
 
-                if (_showCoords)
+                if (_mapItem._showCoords)
                 {
                     int    absY      = origin.Y + (int)Math.Round(node.Y);
                     string coordLine = FormatCoords(node, absY);
@@ -582,9 +567,9 @@ public class GuiDialogSurveyMap : GuiDialog
     {
         double w      = _canvasBounds.InnerWidth;
         double h      = _canvasBounds.InnerHeight;
-        double scale  = w / BlocksPerMap * _zoom;
-        double originX = w / 2.0 - _panX * scale;
-        double originZ = h / 2.0 - _panZ * scale;
+        double scale  = w / BlocksPerMap * _mapItem._zoom;
+        double originX = w / 2.0 - _mapItem._panX * scale;
+        double originZ = h / 2.0 - _mapItem._panZ * scale;
         double cx = mouseX - _canvasBounds.absX;
         double cz = mouseY - _canvasBounds.absY;
         _currentPoints!.Add((float)((cx - originX) / scale));
