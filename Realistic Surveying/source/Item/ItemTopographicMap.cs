@@ -397,7 +397,6 @@ public class ItemTopographicMap : Item
             {
                 IntArrayAttribute faces = GetOrCreateInts(stack, "Faces");
                 faces.value = faces.value.Append(a, b, c);
-                break; // one new face per edge addition
             }
         }
     }
