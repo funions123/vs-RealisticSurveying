@@ -1,11 +1,8 @@
-using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
-using Vintagestory.API.Util;
-using Vintagestory.GameContent;
 
 namespace RealisticSurveying.GameContent;
 
@@ -17,35 +14,7 @@ public class ItemSurveyRope : Item
     internal const string KeyMarkerAY  = "ropeMarkerAY";
     internal const string KeyMarkerAZ  = "ropeMarkerAZ";
 
-    internal const string KeyClothId   = "ropeClothId";
-
     private const double MaxDistanceBlocks = 100.0;
-    private const string ActiveMeshCacheKey = "surveyrope-active-mesh";
-
-    private ClothManager? _clothManager;
-
-    public override void OnLoaded(ICoreAPI api)
-    {
-        base.OnLoaded(api);
-        _clothManager = api.ModLoader.GetModSystem<ClothManager>();
-    }
-
-    public override void OnBeforeRender(ICoreClientAPI capi, ItemStack itemstack, EnumItemRenderTarget target, ref ItemRenderInfo renderinfo)
-    {
-        base.OnBeforeRender(capi, itemstack, target, ref renderinfo);
-
-        int state = capi.World.Player?.Entity?.WatchedAttributes.GetInt(KeyState, 0) ?? 0;
-        if (state != 1) return;
-
-        MultiTextureMeshRef fallback = renderinfo.ModelRef;
-        renderinfo.ModelRef = ObjectCacheUtil.GetOrCreate<MultiTextureMeshRef>(capi, ActiveMeshCacheKey, () =>
-        {
-            var shape = Vintagestory.API.Common.Shape.TryGet(capi, new AssetLocation("game:shapes/item/ropesection.json"));
-            if (shape == null) return fallback;
-            capi.Tesselator.TesselateShape(this, shape, out MeshData mesh);
-            return capi.Render.UploadMultiTextureMesh(mesh);
-        });
-    }
 
     public override void OnHeldInteractStart(ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, bool firstEvent, ref EnumHandHandling handling)
     {
@@ -79,8 +48,6 @@ public class ItemSurveyRope : Item
             byEntity.WatchedAttributes.SetInt(KeyMarkerAY, targetPos.Y);
             byEntity.WatchedAttributes.SetInt(KeyMarkerAZ, targetPos.Z);
             byEntity.WatchedAttributes.SetInt(KeyState, 1);
-
-            CreateClothRope(byEntity, targetPos);
 
             (byPlayer as IServerPlayer)?.SendMessage(
                 GlobalConstants.InfoLogChatGroup,
@@ -163,47 +130,10 @@ public class ItemSurveyRope : Item
 
     private void ClearState(EntityAgent entity)
     {
-        DestroyClothRope(entity);
         entity.WatchedAttributes.SetInt(KeyState, 0);
         entity.WatchedAttributes.RemoveAttribute(KeyMarkerAX);
         entity.WatchedAttributes.RemoveAttribute(KeyMarkerAY);
         entity.WatchedAttributes.RemoveAttribute(KeyMarkerAZ);
-    }
-
-    private void CreateClothRope(EntityAgent entity, BlockPos markerPos)
-    {
-        if (_clothManager == null) return;
-
-        Vec3d playerPos = entity.Pos.XYZ;
-        Vec3d targetPos = new Vec3d(markerPos.X + 0.5, markerPos.Y + 0.5, markerPos.Z + 0.5);
-
-        ClothSystem sys = ClothSystem.CreateRope(api, _clothManager, playerPos, targetPos, null);
-
-        // Pin first end to the player's hand
-        Vec3d lpos = new Vec3d(0, entity.LocalEyePos.Y - 0.3, 0);
-        Vec3d aheadPos = lpos.AheadCopy(0.1, entity.SidedPos.Pitch, entity.SidedPos.Yaw)
-            .AheadCopy(0.4, entity.SidedPos.Pitch, entity.SidedPos.Yaw - GameMath.PIHALF);
-        sys.FirstPoint.PinTo(entity, aheadPos.ToVec3f());
-
-        // Pin last end to the marker block center
-        sys.LastPoint.PinTo(markerPos, new Vec3f(0.5f, 0.5f, 0.5f));
-
-        _clothManager.RegisterCloth(sys);
-        entity.WatchedAttributes.SetInt(KeyClothId, sys.ClothId);
-    }
-
-    private void DestroyClothRope(EntityAgent entity)
-    {
-        if (_clothManager == null) return;
-
-        int clothId = entity.WatchedAttributes.GetInt(KeyClothId, 0);
-        if (clothId == 0) return;
-
-        ClothSystem? sys = _clothManager.GetClothSystem(clothId);
-        if (sys != null)
-            _clothManager.UnregisterCloth(clothId);
-
-        entity.WatchedAttributes.RemoveAttribute(KeyClothId);
     }
 
     /// <summary>
