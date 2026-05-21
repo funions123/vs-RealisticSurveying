@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using RealisticSurveying.GameContent;
@@ -57,7 +58,9 @@ public sealed class RealisticSurveyingModSystem : ModSystem
             .RegisterMessageType<MapStrokePacket>()
             .SetMessageHandler<MapStrokePacket>(OnMapStrokePacket)
             .RegisterMessageType<StrokeUndoPacket>()
-            .SetMessageHandler<StrokeUndoPacket>(OnStrokeUndoPacket);
+            .SetMessageHandler<StrokeUndoPacket>(OnStrokeUndoPacket)
+            .RegisterMessageType<ViewStatePacket>()
+            .SetMessageHandler<ViewStatePacket>(OnViewStatePacket);
     }
 
     public override void StartClientSide(ICoreClientAPI capi)
@@ -72,7 +75,8 @@ public sealed class RealisticSurveyingModSystem : ModSystem
             .RegisterMessageType<MapNamePacket>()
             .RegisterMessageType<DeleteNodePacket>()
             .RegisterMessageType<MapStrokePacket>()
-            .RegisterMessageType<StrokeUndoPacket>();
+            .RegisterMessageType<StrokeUndoPacket>()
+            .RegisterMessageType<ViewStatePacket>();
 
         capi.Event.KeyDown += OnKeyDown;
         capi.World.RegisterGameTickListener(_ => UpdateTheoHighlight(capi), 200);
@@ -97,6 +101,23 @@ public sealed class RealisticSurveyingModSystem : ModSystem
         if (packet.NodeIndex < 0 || packet.NodeIndex >= mapItem.NodeCount(mapSlot.Itemstack)) return;
 
         mapItem.DeleteNode(mapSlot.Itemstack, packet.NodeIndex);
+        mapSlot.MarkDirty();
+    }
+
+    private static void OnViewStatePacket(IServerPlayer fromPlayer, ViewStatePacket packet)
+    {
+        ItemSlot? mapSlot = FindMapSlot(fromPlayer);
+        if (mapSlot?.Itemstack?.Item is not ItemTopographicMap) return;
+
+        ITreeAttribute attr = mapSlot.Itemstack.Attributes;
+        attr.SetDouble("rsViewZoom", packet.Zoom);
+        attr.SetDouble("rsViewPanX", packet.PanX);
+        attr.SetDouble("rsViewPanZ", packet.PanZ);
+        attr.SetBool("rsShowFaces",  packet.ShowFaces);
+        attr.SetBool("rsShowEdges",  packet.ShowEdges);
+        attr.SetBool("rsShowNodes",  packet.ShowNodes);
+        attr.SetBool("rsShowLabels", packet.ShowLabels);
+        attr.SetBool("rsShowCoords", packet.ShowCoords);
         mapSlot.MarkDirty();
     }
 

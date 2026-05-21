@@ -228,20 +228,21 @@ public class GuiDialogSurveyMap : GuiDialog
         SingleComposer?.GetCustomDraw("mapCanvas")?.Redraw();
 
     /// <summary>
-    /// Persists zoom, pan, and toggle state into the item stack's attributes so the
-    /// view survives closing and reopening the map. Stored per-stack, so two different
-    /// map items can have independent zoom/pan/settings.
+    /// Sends view state to the server to be written into the ItemStack attributes.
     /// </summary>
     private void SaveViewState()
     {
-        _mapStack.Attributes.SetBool("rsShowFaces",  _showFaces);
-        _mapStack.Attributes.SetBool("rsShowEdges",  _showEdges);
-        _mapStack.Attributes.SetBool("rsShowNodes",  _showNodes);
-        _mapStack.Attributes.SetBool("rsShowLabels", _showLabels);
-        _mapStack.Attributes.SetBool("rsShowCoords", _showCoords);
-        _mapStack.Attributes.SetDouble("rsViewZoom", _zoom);
-        _mapStack.Attributes.SetDouble("rsViewPanX", _panX);
-        _mapStack.Attributes.SetDouble("rsViewPanZ", _panZ);
+        _labelChannel?.SendPacket(new ViewStatePacket
+        {
+            Zoom       = _zoom,
+            PanX       = _panX,
+            PanZ       = _panZ,
+            ShowFaces  = _showFaces,
+            ShowEdges  = _showEdges,
+            ShowNodes  = _showNodes,
+            ShowLabels = _showLabels,
+            ShowCoords = _showCoords,
+        });
     }
 
     // Mouse: zoom (scroll wheel)
