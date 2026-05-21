@@ -51,6 +51,8 @@ public class ItemSurveyRope : Item
     {
         IPlayer? byPlayer = (byEntity as EntityPlayer)?.Player;
 
+        handling = EnumHandHandling.PreventDefault;
+
         // Not targeting a survey marker — only act if the player is sneaking to cancel
         if (blockSel == null || byEntity.World.BlockAccessor.GetBlock(blockSel.Position) is not BlockSurveyMarker)
         {
@@ -65,7 +67,6 @@ public class ItemSurveyRope : Item
             return;
         }
 
-        handling = EnumHandHandling.PreventDefault;
         if (api.Side != EnumAppSide.Server) return;
 
         int state = byEntity.WatchedAttributes.GetInt(KeyState, 0);
