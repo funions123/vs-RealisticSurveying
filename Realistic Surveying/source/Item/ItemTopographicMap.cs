@@ -321,6 +321,55 @@ public class ItemTopographicMap : Item
         }
     }
 
+    /// <summary>
+    /// Removes the edge at <paramref name="edgeIndex"/>, along with all faces that
+    /// reference it. Remaining face indices are remapped.
+    /// </summary>
+    public void DeleteEdge(ItemStack stack, int edgeIndex)
+    {
+        int edgeCount = EdgeCount(stack);
+        if (edgeIndex < 0 || edgeIndex >= edgeCount) return;
+
+        // ── Remove edge from array ──
+        int[] edges = GetEdges(stack);
+        List<int> newEdges = new List<int>();
+        for (int i = 0; i < edges.Length; i += 2)
+        {
+            if (i / 2 == edgeIndex) continue;
+
+            int a = edges[i], b = edges[i + 1];
+            newEdges.Add(a);
+            newEdges.Add(b);
+        }
+        if (newEdges.Count == 0)
+            stack.Attributes.RemoveAttribute("Edges");
+        else
+            stack.Attributes["Edges"] = new IntArrayAttribute(newEdges.ToArray());
+
+        // ── Rebuild faces ──────────────────────────────────────────────────────
+        int[] faces = GetFaces(stack);
+        List<int> newFaces = new List<int>();
+        for (int i = 0; i < faces.Length; i += 3)
+        {
+            int a = faces[i], b = faces[i + 1], c = faces[i + 2];
+
+            bool hasAC = false, hasBC = false, hasAB = false;
+            int u = edges[edgeIndex * 2 + 0], w = edges[edgeIndex * 2 + 1];
+            if (u == a && w == c || u == c && w == a) hasAC = true;
+            if (u == b && w == c || u == c && w == b) hasBC = true;
+            if (u == a && w == b || u == b && w == a) hasAB = true;
+            if (!hasAC && !hasBC && !hasAB) {
+                newFaces.Add(a);
+                newFaces.Add(b);
+                newFaces.Add(c);
+            }
+        }
+        if (newFaces.Count == 0)
+            stack.Attributes.RemoveAttribute("Faces");
+        else
+            stack.Attributes["Faces"] = new IntArrayAttribute(newFaces.ToArray());
+    }
+
     /// <summary>Sets a custom label on the node at <paramref name="index"/>. Pass empty/null to clear.</summary>
     public void SetNodeLabel(ItemStack stack, int index, string label)
     {

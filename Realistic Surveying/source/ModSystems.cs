@@ -54,6 +54,8 @@ public sealed class RealisticSurveyingModSystem : ModSystem
             .SetMessageHandler<MapNamePacket>(OnMapNamePacket)
             .RegisterMessageType<DeleteNodePacket>()
             .SetMessageHandler<DeleteNodePacket>(OnDeleteNodePacket)
+            .RegisterMessageType<DeleteEdgePacket>()
+            .SetMessageHandler<DeleteEdgePacket>(OnDeleteEdgePacket)
             .RegisterMessageType<MapStrokePacket>()
             .SetMessageHandler<MapStrokePacket>(OnMapStrokePacket)
             .RegisterMessageType<StrokeUndoPacket>()
@@ -71,6 +73,7 @@ public sealed class RealisticSurveyingModSystem : ModSystem
             .RegisterMessageType<NodeLabelPacket>()
             .RegisterMessageType<MapNamePacket>()
             .RegisterMessageType<DeleteNodePacket>()
+            .RegisterMessageType<DeleteEdgePacket>()
             .RegisterMessageType<MapStrokePacket>()
             .RegisterMessageType<StrokeUndoPacket>();
 
@@ -97,6 +100,16 @@ public sealed class RealisticSurveyingModSystem : ModSystem
         if (packet.NodeIndex < 0 || packet.NodeIndex >= mapItem.NodeCount(mapSlot.Itemstack)) return;
 
         mapItem.DeleteNode(mapSlot.Itemstack, packet.NodeIndex);
+        mapSlot.MarkDirty();
+    }
+
+    private static void OnDeleteEdgePacket(IServerPlayer fromPlayer, DeleteEdgePacket packet)
+    {
+        ItemSlot? mapSlot = FindMapSlot(fromPlayer);
+        if (mapSlot?.Itemstack?.Item is not ItemTopographicMap mapItem) return;
+        if (packet.EdgeIndex < 0 || packet.EdgeIndex >= mapItem.EdgeCount(mapSlot.Itemstack)) return;
+
+        mapItem.DeleteEdge(mapSlot.Itemstack, packet.EdgeIndex);
         mapSlot.MarkDirty();
     }
 
