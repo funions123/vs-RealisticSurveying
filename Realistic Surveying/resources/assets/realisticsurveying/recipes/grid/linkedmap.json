@@ -1,0 +1,13 @@
+{
+    "ingredientPattern": "MTB",
+    "width": 3,
+    "height": 1,
+    "name": "linkedmap",
+    "copyAttributesFrom": "M",
+    "ingredients": {
+        "T": { "type": "item", "code": "game:gear-temporal" },
+        "M": { "type": "item", "code": "realisticsurveying:topographicmap", "isTool": true, "toolDurabilityCost": 0 },
+        "B": { "type": "item", "code": "realisticsurveying:blankmap" }
+    },
+    "output": { "type": "item", "code": "realisticsurveying:topographicmap", "quantity": 1 }
+}

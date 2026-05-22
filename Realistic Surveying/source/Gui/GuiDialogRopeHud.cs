@@ -3,7 +3,7 @@ using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Config;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Small HUD overlay that shows the player's current distance from the roped survey marker

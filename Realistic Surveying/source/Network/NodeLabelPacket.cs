@@ -1,6 +1,6 @@
 using ProtoBuf;
 
-namespace RealisticSurveying.Network;
+namespace RealisticSurveying;
 
 [ProtoContract]
 public class NodeLabelPacket

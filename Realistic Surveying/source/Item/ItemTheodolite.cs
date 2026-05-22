@@ -4,7 +4,7 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Two-station marker triangulation instrument.
@@ -296,6 +296,7 @@ public class ItemTheodolite : Item
         map.AddEdgeAndDetectFace(mapStack, idxA, idxC);
         map.AddEdgeAndDetectFace(mapStack, idxB, idxC);
         mapSlot.MarkDirty();
+        ItemTopographicMap.PropagateToLinkedMaps(mapStack, (ICoreServerAPI)api);
 
         ClearEntityState(byEntity);
         ClearItemState(slot);

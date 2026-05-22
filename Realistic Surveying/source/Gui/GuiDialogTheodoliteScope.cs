@@ -3,9 +3,7 @@ using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Config;
 using Vintagestory.Client.NoObf;
-using RealisticSurveying.Patches;
-
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Full-screen scope overlay rendered as a <see cref="HudElement"/> so the camera stays active while the scope is open.

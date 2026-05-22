@@ -4,7 +4,7 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Navigation instrument that estimates the player's XZ position.  

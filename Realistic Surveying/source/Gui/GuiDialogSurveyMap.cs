@@ -1,10 +1,9 @@
 using Cairo;
-using RealisticSurveying.Network;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Renders the survey map as a top-down 2D projection.

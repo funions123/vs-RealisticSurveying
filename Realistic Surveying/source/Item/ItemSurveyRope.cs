@@ -4,7 +4,7 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 public class ItemSurveyRope : Item
 {
@@ -113,6 +113,7 @@ public class ItemSurveyRope : Item
             int indexB = map.FindOrAddNode(mapStack, offsetB);
             map.AddEdgeAndDetectFace(mapStack, indexA, indexB);
             mapSlot.MarkDirty();
+            ItemTopographicMap.PropagateToLinkedMaps(mapStack, (ICoreServerAPI)api);
 
             ClearState(byEntity);
 

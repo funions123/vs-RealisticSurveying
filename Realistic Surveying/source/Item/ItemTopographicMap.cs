@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -7,7 +8,7 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.API.Util;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Stores survey data as flat packed arrays on the item stack.
@@ -79,6 +80,9 @@ public class ItemTopographicMap : Item
             {
                 // Record which slot holds the selected map so the rope and theodolite can prefer it.
                 byEntity.WatchedAttributes.SetInt(KeySelectedSlot, FindSlotIndex(byPlayer, slot));
+
+                // Apply any pending survey data from the registry (handles offline updates on linked copies).
+                api.ModLoader.GetModSystem<RealisticSurveyingModSystem>()?.TryApplyRegistryUpdate(slot);
             }
             handling = EnumHandHandling.PreventDefault;
         }
@@ -114,6 +118,23 @@ public class ItemTopographicMap : Item
 
         string name = GetMapName(inSlot.Itemstack);
         dsc.AppendLine(string.IsNullOrWhiteSpace(name) ? "Unnamed Map" : name);
+
+        string linkId = inSlot.Itemstack.Attributes.GetString("LinkId", "");
+        if (!string.IsNullOrEmpty(linkId))
+        {
+            bool isSource = inSlot.Itemstack.Attributes.GetBool("IsLinkSource", false);
+            if (isSource)
+            {
+                dsc.AppendLine(Lang.Get("realisticsurveying:temporallylinked-source"));
+            }
+            else
+            {
+                string sourceName = inSlot.Itemstack.Attributes.GetString("LinkSourceName", "");
+                dsc.AppendLine(string.IsNullOrEmpty(sourceName)
+                    ? Lang.Get("realisticsurveying:temporallylinked-copy")
+                    : Lang.Get("realisticsurveying:temporallylinked-copy-named", sourceName));
+            }
+        }
     }
 
     // ── Query ──────────────────────────────────────────────────────────────
@@ -374,6 +395,69 @@ public class ItemTopographicMap : Item
         float[] pts = (stack.Attributes[$"Stroke_{index}_Pts"] as FloatArrayAttribute)?.value
                       ?? Array.Empty<float>();
         return (c, w, pts);
+    }
+
+    // ── Temporal linking ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// When a topographic map is produced by the linked-map recipe, assigns a shared <c>LinkId</c> to 
+    /// both the source map and the output copy so the server can propagate future survey data from source to copies.
+    /// </summary>
+    public override void OnCreatedByCrafting(ItemSlot[] allInputSlots, ItemSlot outputSlot, IRecipeBase byRecipe)
+    {
+        base.OnCreatedByCrafting(allInputSlots, outputSlot, byRecipe);
+
+        if (api?.Side != EnumAppSide.Server) return;
+
+        // Activate the linking process when the recipe is used, identified by the presence of a map and temporal gear
+        bool hasTemporalGear = false;
+        ItemSlot? sourceMapSlot = null;
+        foreach (ItemSlot s in allInputSlots)
+        {
+            if (s?.Itemstack == null) continue;
+            AssetLocation code = s.Itemstack.Item?.Code;
+            if (code?.Domain == "game" && code.Path == "gear-temporal")
+                hasTemporalGear = true;
+            else if (s.Itemstack.Item is ItemTopographicMap m && m.IsInitialized(s.Itemstack))
+                sourceMapSlot = s;
+        }
+
+        if (!hasTemporalGear || sourceMapSlot == null) return;
+
+        // Generate or reuse the link ID
+        string linkId = sourceMapSlot.Itemstack.Attributes.GetString("LinkId", "");
+        if (string.IsNullOrEmpty(linkId))
+        {
+            linkId = Guid.NewGuid().ToString("N"); // use GUID
+            sourceMapSlot.Itemstack.Attributes.SetString("LinkId", linkId);
+            sourceMapSlot.Itemstack.Attributes.SetBool("IsLinkSource", true);
+            sourceMapSlot.MarkDirty();
+        }
+
+        // Apply to the newly crafted copy
+        outputSlot.Itemstack.Attributes.SetString("LinkId", linkId);
+        outputSlot.Itemstack.Attributes.RemoveAttribute("IsLinkSource"); // copies are never the source
+
+        // Store the source map's name so the copy can display it in its tooltip
+        string sourceName = sourceMapSlot.Itemstack.Attributes.GetString("MapName", "");
+        if (!string.IsNullOrEmpty(sourceName))
+            outputSlot.Itemstack.Attributes.SetString("LinkSourceName", sourceName);
+        else
+            outputSlot.Itemstack.Attributes.RemoveAttribute("LinkSourceName");
+    }
+
+    /// <summary>
+    /// Called after survey data is added to <paramref name="sourceStack"/>.
+    /// Snapshots the current topology into the server registry so any linked copy
+    /// receives it the next time it is opened.
+    /// </summary>
+    public static void PropagateToLinkedMaps(ItemStack sourceStack, ICoreServerAPI sapi)
+    {
+        string linkId = sourceStack.Attributes.GetString("LinkId", "");
+        if (string.IsNullOrEmpty(linkId)) return;
+
+        sapi.ModLoader.GetModSystem<RealisticSurveyingModSystem>()
+            ?.UpdateLinkRegistry(linkId, sourceStack);
     }
 
     // ── Private helpers ────────────────────────────────────────────────────

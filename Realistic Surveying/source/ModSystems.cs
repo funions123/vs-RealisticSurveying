@@ -1,12 +1,12 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
-using RealisticSurveying.GameContent;
-using RealisticSurveying.Network;
 
 namespace RealisticSurveying;
 
@@ -16,9 +16,16 @@ public sealed class RealisticSurveyingModSystem : ModSystem
     private const string LabelChannelName     = "realisticsurveying-labels";
 
     private ICoreClientAPI?           _capi;
+    private ICoreServerAPI?           _sapi;
     private IClientNetworkChannel?    _clientLabelChannel;
     private GuiDialogTheodoliteScope? _scopeDialog;
     private GuiDialogRopeHud?         _ropeHud;
+
+    /// <summary>
+    /// Server-side registry: LinkId, serialized map data snapshot.
+    /// Persistent with the world save.
+    /// </summary>
+    private Dictionary<string, byte[]> _linkRegistry = new();
 
     /// <summary>
     /// True after the player explicitly closes the scope (Esc) while a measurement is still in progress.  
@@ -47,6 +54,8 @@ public sealed class RealisticSurveyingModSystem : ModSystem
 
     public override void StartServerSide(ICoreServerAPI sapi)
     {
+        _sapi = sapi;
+
         sapi.Network
             .RegisterChannel(LabelChannelName)
             .RegisterMessageType<NodeLabelPacket>()
@@ -61,6 +70,9 @@ public sealed class RealisticSurveyingModSystem : ModSystem
             .SetMessageHandler<StrokeUndoPacket>(OnStrokeUndoPacket)
             .RegisterMessageType<ViewStatePacket>()
             .SetMessageHandler<ViewStatePacket>(OnViewStatePacket);
+
+        sapi.Event.SaveGameLoaded += () => LoadLinkRegistry(sapi);
+        sapi.Event.GameWorldSave  += () => SaveLinkRegistry(sapi);
     }
 
     public override void StartClientSide(ICoreClientAPI capi)
@@ -145,6 +157,189 @@ public sealed class RealisticSurveyingModSystem : ModSystem
         if (mapSlot?.Itemstack?.Item is not ItemTopographicMap mapItem) return;
         mapItem.RemoveLastStroke(mapSlot.Itemstack);
         mapSlot.MarkDirty();
+    }
+
+    // ── Link registry: persistence ─────────────────────────────────────────
+
+    private const string RegistrySaveKey = "rs-linkregistry";
+
+    private void SaveLinkRegistry(ICoreServerAPI sapi)
+    {
+        if (_linkRegistry.Count == 0) return;
+        try
+        {
+            using MemoryStream ms = new MemoryStream();
+            using BinaryWriter w  = new BinaryWriter(ms);
+            w.Write(_linkRegistry.Count);
+            foreach (KeyValuePair<string, byte[]> kv in _linkRegistry)
+            {
+                w.Write(kv.Key);
+                w.Write(kv.Value.Length);
+                w.Write(kv.Value);
+            }
+            sapi.WorldManager.SaveGame.StoreData(RegistrySaveKey, ms.ToArray());
+        }
+        catch (Exception e)
+        {
+            sapi.World.Logger.Warning("[RealisticSurveying] Failed to save link registry: " + e.Message);
+        }
+    }
+
+    private void LoadLinkRegistry(ICoreServerAPI sapi)
+    {
+        _linkRegistry.Clear();
+        try
+        {
+            byte[]? raw = sapi.WorldManager.SaveGame.GetData(RegistrySaveKey);
+            if (raw == null || raw.Length == 0) return;
+
+            using MemoryStream ms = new MemoryStream(raw);
+            using BinaryReader r  = new BinaryReader(ms);
+            int count = r.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                string key     = r.ReadString();
+                int    dataLen = r.ReadInt32();
+                byte[] data    = r.ReadBytes(dataLen);
+                _linkRegistry[key] = data;
+            }
+        }
+        catch (Exception e)
+        {
+            sapi.World.Logger.Warning("[RealisticSurveying] Failed to load link registry: " + e.Message);
+        }
+    }
+
+    // ── Link registry: update + apply ─────────────────────────────────────
+
+    /// <summary>
+    /// Records the current map data of <paramref name="sourceStack"/> in the registry so that
+    /// offline players can receive the update when they next join.
+    /// Called by <see cref="ItemTopographicMap.PropagateToLinkedMaps"/> after each successful survey.
+    /// </summary>
+    internal void UpdateLinkRegistry(string linkId, ItemStack sourceStack)
+    {
+        _linkRegistry[linkId] = SerializeMapData(sourceStack);
+    }
+
+    /// <summary>
+    /// Called by <see cref="ItemTopographicMap.OnHeldInteractStart"/> on the server side whenever
+    /// a player opens a linked map copy.  Pulls mapdata from the server side registry to sync the maps.
+    /// </summary>
+    public void TryApplyRegistryUpdate(ItemSlot mapSlot)
+    {
+        if (mapSlot?.Itemstack == null) return;
+
+        string linkId  = mapSlot.Itemstack.Attributes.GetString("LinkId", "");
+        bool   isSource = mapSlot.Itemstack.Attributes.GetBool("IsLinkSource", false);
+
+        if (string.IsNullOrEmpty(linkId) || isSource) return;
+        if (!_linkRegistry.TryGetValue(linkId, out byte[]? snapshot)) return;
+
+        try
+        {
+            ApplyMapData(mapSlot.Itemstack, snapshot);
+            mapSlot.MarkDirty();
+        }
+        catch (Exception e)
+        {
+            _sapi?.Logger.Warning($"[RealisticSurveying] Failed to apply link registry for '{linkId}': {e.Message}");
+        }
+    }
+
+    // ── Map Data Serialization ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Serialises the map data of <paramref name="stack"/> to a compact binary blob.
+    /// Faces are intentionally omitted: they are fully derived from edges by
+    /// <see cref="ItemTopographicMap.AddEdgeAndDetectFace"/> and will be re-detected on merge.
+    /// </summary>
+    private static byte[] SerializeMapData(ItemStack stack)
+    {
+        float[] nodes = (stack.Attributes["Nodes"] as FloatArrayAttribute)?.value ?? Array.Empty<float>();
+        int[]   edges = (stack.Attributes["Edges"] as IntArrayAttribute)?.value  ?? Array.Empty<int>();
+        int nodeCount = nodes.Length / 3;
+
+        using MemoryStream ms = new MemoryStream();
+        using BinaryWriter w  = new BinaryWriter(ms);
+
+        w.Write(nodes.Length);
+        foreach (float f in nodes) w.Write(f);
+
+        w.Write(edges.Length);
+        foreach (int v in edges) w.Write(v);
+
+        // Labels: one string per node (empty string = no label)
+        w.Write(nodeCount);
+        for (int i = 0; i < nodeCount; i++)
+            w.Write(stack.Attributes.GetString($"NodeLabel_{i}", ""));
+
+        // Source map name
+        w.Write(stack.Attributes.GetString("MapName", ""));
+
+        return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Merges source map data from <paramref name="data"/> into <paramref name="stack"/>.
+    /// Nodes and edges present in the source but absent from the copy are added;
+    /// everything already on the copy is left untouched.
+    /// Labels are only written when the copy node has no label of its own.
+    /// </summary>
+    private static void ApplyMapData(ItemStack stack, byte[] data)
+    {
+        using MemoryStream ms = new MemoryStream(data);
+        using BinaryReader r  = new BinaryReader(ms);
+
+        // Deserialise source snapshot
+        int nodeLen = r.ReadInt32();
+        float[] srcNodes = new float[nodeLen];
+        for (int i = 0; i < nodeLen; i++) srcNodes[i] = r.ReadSingle();
+        int srcNodeCount = nodeLen / 3;
+
+        int edgeLen = r.ReadInt32();
+        int[] srcEdges = new int[edgeLen];
+        for (int i = 0; i < edgeLen; i++) srcEdges[i] = r.ReadInt32();
+
+        int labelCount = r.ReadInt32();
+        string[] srcLabels = new string[labelCount];
+        for (int i = 0; i < labelCount; i++) srcLabels[i] = r.ReadString();
+
+        // Source map name
+        try
+        {
+            string sourceName = r.ReadString();
+            if (!string.IsNullOrEmpty(sourceName))
+                stack.Attributes.SetString("LinkSourceName", sourceName);
+            else
+                stack.Attributes.RemoveAttribute("LinkSourceName");
+        }
+        catch (EndOfStreamException) { }
+
+        // Merge nodes
+        // Map each source node index to the corresponding index on the copy,
+        // adding the node if it isn't already there.
+        ItemTopographicMap map = (ItemTopographicMap)stack.Item;
+        int[] indexMap = new int[srcNodeCount];
+        for (int i = 0; i < srcNodeCount; i++)
+        {
+            Vec3f pos = new Vec3f(srcNodes[i * 3], srcNodes[i * 3 + 1], srcNodes[i * 3 + 2]);
+            indexMap[i] = map.FindOrAddNode(stack, pos);
+        }
+
+        // Merge labels
+        // Only set a label when the copy node has none of its own; a label on a copy map takes precedence.
+        for (int i = 0; i < labelCount; i++)
+        {
+            if (string.IsNullOrEmpty(srcLabels[i])) continue;
+            int copyIdx = indexMap[i];
+            if (string.IsNullOrEmpty(map.GetNodeLabel(stack, copyIdx)))
+                map.SetNodeLabel(stack, copyIdx, srcLabels[i]);
+        }
+
+        // Merge edges 
+        for (int i = 0; i < edgeLen; i += 2)
+            map.AddEdgeAndDetectFace(stack, indexMap[srcEdges[i]], indexMap[srcEdges[i + 1]]);
     }
 
     private static ItemSlot? FindMapSlot(IPlayer player)

@@ -1,7 +1,7 @@
 using HarmonyLib;
 using Vintagestory.Client.NoObf;
 
-namespace RealisticSurveying.Patches;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Intercepts every call to <see cref="ClientMain.Set3DProjection"/> and replaces the FOV parameter while the theodolite scope is zoomed.

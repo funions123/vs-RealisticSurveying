@@ -2,7 +2,7 @@ using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.Client.NoObf;
 
-namespace RealisticSurveying.Patches;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Scales the mouse-look delta contributed to <c>ClientMain.MouseDeltaX/Y</c> by <see cref="ScaleFactor"/> while the theodolite scope is zoomed.

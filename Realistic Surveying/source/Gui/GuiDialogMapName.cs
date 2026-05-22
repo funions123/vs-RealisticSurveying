@@ -1,7 +1,7 @@
 using System;
 using Vintagestory.API.Client;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Dialog for renaming maps.

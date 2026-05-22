@@ -15,5 +15,9 @@
   "itemdesc-theodolite": "Used for determining the location of a third point using two established markers",
 
   "item-sextant": "Sextant",
-  "itemdesc-sextant": "Can provide a rough estimation of your coordinates using the sun and stars"
+  "itemdesc-sextant": "Can provide a rough estimation of your coordinates using the sun and stars",
+
+  "realisticsurveying:temporallylinked-source": "Temporally Linked (original)",
+  "realisticsurveying:temporallylinked-copy": "Temporally Linked (copy)",
+  "realisticsurveying:temporallylinked-copy-named": "Temporally linked to '{0}'"
 }

@@ -1,7 +1,7 @@
 using System;
 using Vintagestory.API.Client;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 /// <summary>
 /// Small dialog that lets the player enter or edit a text label for a survey node.

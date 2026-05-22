@@ -1,6 +1,6 @@
 using Vintagestory.API.Common;
 
-namespace RealisticSurveying.GameContent;
+namespace RealisticSurveying;
 
 public class BlockSurveyMarker : Block
 {
