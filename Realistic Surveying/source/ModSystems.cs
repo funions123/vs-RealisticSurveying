@@ -381,7 +381,7 @@ public sealed class RealisticSurveyingModSystem : ModSystem
     }
 
     /// <summary>
-    /// Boosts the client's picking range to 100 blocks so the game's built-in block-selection raycast can reach 
+    /// Boosts the client's picking range to the last approved render distance so the game's built-in block-selection raycast can reach 
     /// distant survey markers while the theodolite is in an active measurement state.  
     /// The extended block selection is sent to the server and used in <see cref="ItemTheodolite.OnHeldInteractStart"/> without server-side distance validation 
     /// (item interactions are not distance-checked by VS, only block break/place is).
