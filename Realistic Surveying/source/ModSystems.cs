@@ -390,7 +390,13 @@ public sealed class RealisticSurveyingModSystem : ModSystem
     {
         if (_rangeExtended) return;
         _origPickingRange = capi.World.Player.WorldData.PickingRange;
-        capi.World.Player.WorldData.PickingRange = capi.World.Player.WorldData.LastApprovedViewDistance;
+        var newRange = capi.World.Player.WorldData.LastApprovedViewDistance;
+        // not sure why, but sometimes the value is 0 - then we use client's setting as fallback
+        if (newRange == 0)
+        {
+            newRange = capi.World.Player.WorldData.DesiredViewDistance;
+        }
+        capi.World.Player.WorldData.PickingRange = newRange;
         _rangeExtended = true;
     }
 
