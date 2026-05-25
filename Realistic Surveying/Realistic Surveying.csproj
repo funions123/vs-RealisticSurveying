@@ -3,7 +3,7 @@
   <PropertyGroup>
     <ModName>Realistic Surveying</ModName>
     <ModType>code</ModType>
-    <ModVersion>1.0.0</ModVersion>
+    <ModVersion>1.0.1</ModVersion>
     <ModId>realisticsurveying</ModId>
     <Description>Adds realistic surveying and hand-drawn maps.</Description>
     <Side>universal</Side>

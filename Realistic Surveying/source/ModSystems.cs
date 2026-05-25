@@ -390,7 +390,18 @@ public sealed class RealisticSurveyingModSystem : ModSystem
     {
         if (_rangeExtended) return;
         _origPickingRange = capi.World.Player.WorldData.PickingRange;
-        capi.World.Player.WorldData.PickingRange = capi.World.Player.WorldData.LastApprovedViewDistance;
+        int desired  = capi.World.Player.WorldData.DesiredViewDistance;
+        int approved = capi.World.Player.WorldData.LastApprovedViewDistance;
+
+        // LastApprovedViewDistance is only written when the server overrides the client's
+        // requested value, so 0 means no restriction.
+        float effectiveRange;
+        if (approved > 0)
+            effectiveRange = Math.Min(approved, desired);
+        else
+            effectiveRange = desired;
+
+        capi.World.Player.WorldData.PickingRange = effectiveRange;
         _rangeExtended = true;
     }
 

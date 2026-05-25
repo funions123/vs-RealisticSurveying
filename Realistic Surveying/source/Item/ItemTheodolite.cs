@@ -192,7 +192,7 @@ public class ItemTheodolite : Item
         if (phase == 0)
         {
             // targetPos = Marker B
-            float angleA = InteriorAngle(stnX + 0.5, stnZ + 0.5, s1X, s1Z, targetPos.X, targetPos.Z);
+            float angleA = InteriorAngle(stnX, stnZ, s1X, s1Z, targetPos.X, targetPos.Z);
 
             var attr = slot.Itemstack.Attributes;
             attr.SetFloat(KeyAngleA, angleA);
@@ -249,7 +249,7 @@ public class ItemTheodolite : Item
         int   cY     = slot.Itemstack.Attributes.GetInt(KeyTCY);
         int   cZ     = slot.Itemstack.Attributes.GetInt(KeyTCZ);
 
-        float angleB = InteriorAngle(stnX + 0.5, stnZ + 0.5, s1X, s1Z, markerA.X, markerA.Z);
+        float angleB = InteriorAngle(stnX, stnZ, s1X, s1Z, markerA.X, markerA.Z);
 
         ItemSlot? mapSlot = FindMapSlot(byPlayer);
         if (mapSlot == null)
@@ -263,7 +263,7 @@ public class ItemTheodolite : Item
         ItemStack          mapStack = mapSlot.Itemstack;
         BlockPos           origin   = map.GetOrigin(mapStack);
 
-        if (!Triangulate(saX + 0.5, saZ + 0.5, stnX + 0.5, stnZ + 0.5,
+        if (!Triangulate(saX, saZ, stnX, stnZ,
                          cX, cZ, cY, angleA, angleB, origin,
                          out Vec3f cOffset, out string? err))
         {
@@ -311,7 +311,7 @@ public class ItemTheodolite : Item
     /// Angle (0–180 degrees) at the station between the directions to two sighted blocks.
     /// </summary>
     private static float InteriorAngle(
-        double stationX, double stationZ,
+        int stationX, int stationZ,
         int refX, int refZ,
         int targetX, int targetZ)
     {
@@ -330,8 +330,8 @@ public class ItemTheodolite : Item
     /// Triangulate C's position as an offset from the origin node.
     /// </summary>
     private static bool Triangulate(
-        double sAX, double sAZ,
-        double sBX, double sBZ,
+        int    sAX, int    sAZ,
+        int    sBX, int    sBZ,
         int    cX,  int cZ, int cY,
         float  angleA, float angleB,
         BlockPos origin,
